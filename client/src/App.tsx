@@ -24,6 +24,7 @@ import Quotations from "@/pages/Quotations";
 import QuotationEditor from "@/pages/QuotationEditor";
 import NotFound from "@/pages/not-found";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import SharedPortal from "@/pages/SharedPortal";
 import { Loader2 } from "lucide-react";
 
@@ -144,6 +145,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <OfflineBanner />
+          <UpdatePrompt />
           <Router />
         </TooltipProvider>
       </AuthProvider>
