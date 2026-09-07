@@ -14,6 +14,7 @@ import {
   LogOut,
   User,
   Users,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,33 @@ import { cn, getInitials, isAdminRole } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import Footer from "@/components/Footer";
 import { InstallAppButton } from "@/components/InstallAppButton";
+import {
+  PullToRefresh,
+  softRefresh,
+} from "@/components/PullToRefresh";
+
+function RefreshButton() {
+  const [spinning, setSpinning] = useState(false);
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9"
+      title="Refresh"
+      data-testid="button-refresh"
+      onClick={async () => {
+        setSpinning(true);
+        try {
+          await softRefresh();
+        } finally {
+          setSpinning(false);
+        }
+      }}
+    >
+      <RefreshCw className={`h-5 w-5 ${spinning ? "animate-spin" : ""}`} />
+    </Button>
+  );
+}
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
@@ -289,6 +317,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-2">
           <AccountMenu compact />
           <InstallAppButton />
+          <RefreshButton />
           <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
             <SheetTrigger asChild>
               <Button
@@ -308,8 +337,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <main className="h-full w-full flex-1 overflow-y-auto pt-14 md:pt-0">
-        <div className="min-h-full">{children}</div>
-        <Footer />
+        <PullToRefresh>
+          <div className="min-h-full">{children}</div>
+          <Footer />
+        </PullToRefresh>
       </main>
     </div>
   );
