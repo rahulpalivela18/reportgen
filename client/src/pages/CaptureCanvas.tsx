@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { useRoute, useSearchParams, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { ensureJpeg } from "@/lib/utils";
+import { ensureJpeg, compressImageFile } from "@/lib/utils";
 import CapturePDF from "@/components/CapturePDF";
 import { pdf } from "@react-pdf/renderer";
 import { useAuth } from "@/lib/auth";
@@ -425,18 +425,20 @@ export default function CaptureCanvas() {
   const handlePhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setDraft((p) => ({ ...p, photoDataUrl: reader.result as string, photoFile: file }));
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(
+      ({ dataUrl }) => setDraft((p) => ({ ...p, photoDataUrl: dataUrl, photoFile: file })),
+      () => {},
+    );
   }, []);
 
   const resolvedPhotoInputRef = useRef<HTMLInputElement>(null);
   const handleResolvedPhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setDraft((p) => ({ ...p, resolvedPhotoDataUrl: reader.result as string }));
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(
+      ({ dataUrl }) => setDraft((p) => ({ ...p, resolvedPhotoDataUrl: dataUrl })),
+      () => {},
+    );
   }, []);
 
   function zoomIn() { setScale((s) => Math.min(s * 1.3, 5)); }

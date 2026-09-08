@@ -65,7 +65,7 @@ import {
 import { Link, useRoute } from "wouter";
 import NotFound from "./not-found";
 import { useReactToPrint } from "react-to-print";
-import { cn } from "@/lib/utils";
+import { cn, compressImageFile } from "@/lib/utils";
 import ReportPreview from "@/pages/ReportPreview";
 import IssuesView from "@/components/IssuesView";
 import {
@@ -222,17 +222,18 @@ export default function ReportEditor() {
     setIsSheetOpen(true);
   };
 
-  const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || formData.images.length >= 3) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
+    try {
+      const { dataUrl } = await compressImageFile(file);
       setFormData({
         ...formData,
-        images: [...formData.images, ev.target?.result as string],
+        images: [...formData.images, dataUrl],
       });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // compression failed — skip silently, user can retry
+    }
     e.target.value = "";
   };
 
@@ -889,17 +890,17 @@ function ChecklistItemRow({
         ? "bg-red-500 text-white"
         : "bg-yellow-500 text-white";
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsReadingFile(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      update(item.id, { image: ev.target?.result as string });
-      setIsReadingFile(false);
-    };
-    reader.onerror = () => setIsReadingFile(false);
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await compressImageFile(file);
+      update(item.id, { image: dataUrl });
+    } catch {
+      // compression failed — user can retry
+    }
+    setIsReadingFile(false);
   };
 
   return (
@@ -1565,17 +1566,18 @@ function ProgressView({
     setPendingResolveId(null);
   };
 
-  const handlePhotoUpload = (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
+    try {
+      const { dataUrl } = await compressImageFile(file);
       setAfterPhotos((prev) => ({
         ...prev,
-        [itemId]: [...(prev[itemId] || []), ev.target?.result as string],
+        [itemId]: [...(prev[itemId] || []), dataUrl],
       }));
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // compression failed — user can retry
+    }
     e.target.value = "";
   };
 
@@ -1634,17 +1636,18 @@ function ProgressView({
     });
   };
 
-  const handleEditPhotoUpload = (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditPhotoUpload = async (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
+    try {
+      const { dataUrl } = await compressImageFile(file);
       setEditAfterPhotos((prev) => ({
         ...prev,
-        [itemId]: [...(prev[itemId] || []), ev.target?.result as string],
+        [itemId]: [...(prev[itemId] || []), dataUrl],
       }));
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // compression failed — user can retry
+    }
     e.target.value = "";
   };
 

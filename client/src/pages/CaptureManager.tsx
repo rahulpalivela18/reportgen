@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -47,7 +48,7 @@ import {
 import { useRoute, useLocation, useSearchParams } from "wouter";
 import { ProjectTabs } from "@/components/ProjectTabs";
 import { useToast } from "@/hooks/use-toast";
-import { ensureJpeg, cn, isAdminRole } from "@/lib/utils";
+import { ensureJpeg, compressImageFile, cn, isAdminRole } from "@/lib/utils";
 import CapturePDF from "@/components/CapturePDF";
 import { pdf } from "@react-pdf/renderer";
 import { useAuth } from "@/lib/auth";
@@ -496,25 +497,7 @@ export default function CaptureManager() {
   }, [areaFilter, severityFilter, statusFilter, search, visitFilter, untaggedOnly, tagFilters]);
 
   function readFileAsCapture(file: File) {
-    return new Promise<{ dataUrl: string; width: number; height: number }>(
-      (resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          const img = new Image();
-          img.onload = () =>
-            resolve({
-              dataUrl,
-              width: img.naturalWidth,
-              height: img.naturalHeight,
-            });
-          img.onerror = reject;
-          img.src = dataUrl;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      }
-    );
+    return compressImageFile(file);
   }
 
   const uploadMutation = useMutation({
@@ -1351,6 +1334,9 @@ export default function CaptureManager() {
                 ? `Add Capture — ${burstCount} captured here`
                 : "Add Capture"}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Upload a site photo with an optional title and tags.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1499,6 +1485,9 @@ export default function CaptureManager() {
             <DialogTitle>
               {currentVisit ? "Start a new visit" : "Name this visit"}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Name the inspection round new captures will belong to.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-slate-500">
@@ -1549,6 +1538,9 @@ export default function CaptureManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Tag {untaggedCount} untagged captures</DialogTitle>
+            <DialogDescription className="sr-only">
+              Pick tags to apply to every untagged capture in this project.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-slate-500">
             These tags will be added to every untagged capture in this
@@ -1613,6 +1605,9 @@ export default function CaptureManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Tag capture</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit the block, floor, flat, and amenity tags on this capture.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-slate-500">
             {tagEditCapture?.title ?? ""}
@@ -1683,6 +1678,9 @@ export default function CaptureManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename capture</DialogTitle>
+            <DialogDescription className="sr-only">
+              Give this capture a new title.
+            </DialogDescription>
           </DialogHeader>
           <Input
             value={renameTitle}

@@ -91,9 +91,11 @@ export function TagSelect({
       }}
     >
       {allOption && <option value="">{allOption.label}</option>}
-      {!allOption && !selectedId && (
-        <option value="" disabled>
-          {placeholder || label}
+      {/* Without allOption (upload / edit dialogs) always offer a clear
+          option — otherwise a misclicked tag can never be removed. */}
+      {!allOption && (
+        <option value="">
+          {selectedId ? `No ${label.toLowerCase()}` : placeholder || label}
         </option>
       )}
       {values.map((v) => (

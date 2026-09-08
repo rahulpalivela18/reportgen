@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { User as UserIcon, Save, KeyRound, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ROLE_LABELS } from "@/lib/constants";
-import { getInitials } from "@/lib/utils";
+import { getInitials, compressImageFile } from "@/lib/utils";
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
@@ -37,15 +37,15 @@ export default function Profile() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setAvatarPreview(base64);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await compressImageFile(file, 512, 0.85);
+      setAvatarPreview(dataUrl);
+    } catch {
+      // compression failed — user can retry
+    }
   };
 
   const saveMutation = useMutation({

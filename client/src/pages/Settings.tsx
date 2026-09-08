@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Building2, Save, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { isAdminRole } from "@/lib/utils";
+import { isAdminRole, compressImageFile } from "@/lib/utils";
 
 export default function Settings() {
   const { user, workspace, refreshWorkspace } = useAuth();
@@ -49,16 +49,16 @@ export default function Settings() {
       }),
   });
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setProfile({ ...profile, logoUrl: base64 });
-      setLogoPreview(base64);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await compressImageFile(file, 512, 0.85);
+      setProfile({ ...profile, logoUrl: dataUrl });
+      setLogoPreview(dataUrl);
+    } catch {
+      // compression failed — user can retry
+    }
   };
 
   return (
