@@ -32,13 +32,24 @@ export async function uploadImageToGCP(
     const uniqueFilename = `${Date.now()}-${randomSuffix}-${filename.replace(/[^a-zA-Z0-9.]/g, "_")}`;
     const file = bucket.file(uniqueFilename);
 
-    // Upload
-    await file.save(buffer, {
-      contentType: getContentType(filename),
-      metadata: {
-        cacheControl: "public, max-age=31536000",
-      },
-    });
+    // Upload with a hard timeout: on flaky/dead networks file.save() can
+    // hang for minutes. On timeout we return null and the caller keeps the
+    // base64 payload (queued offline, uploaded to GCP on a later sync).
+    const SAVE_TIMEOUT_MS = 20000;
+    await Promise.race([
+      file.save(buffer, {
+        contentType: getContentType(filename),
+        metadata: {
+          cacheControl: "public, max-age=31536000",
+        },
+      }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("GCP upload timed out")),
+          SAVE_TIMEOUT_MS,
+        ),
+      ),
+    ]);
 
     return `https://storage.googleapis.com/${bucketName}/${uniqueFilename}`;
   } catch (error: any) {

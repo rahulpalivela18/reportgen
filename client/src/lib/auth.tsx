@@ -135,6 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setWorkspace(workspace);
         cacheAuth(user, workspace);
         fetchTrialStatus();
+        // Returning session (not a fresh login): still warm the globals so
+        // offline creation works without ever opening the right page first.
         prefetchGlobalEssentials();
       })
       .catch((err) => {

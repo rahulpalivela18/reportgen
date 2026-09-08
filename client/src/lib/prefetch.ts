@@ -10,6 +10,8 @@ export interface OfflinePackage {
   imageTotal: number;
   imageBytes: number;
   errors: number;
+  /** Skipped by the newest-first budget (not failures). */
+  skippedBudget: number;
 }
 
 export interface PrefetchProgress {
@@ -39,6 +41,25 @@ function isFetchableImageUrl(u: unknown): u is string {
 function normalizeUrl(u: string): string {
   if (isHttpUrl(u)) return u;
   return new URL(u, window.location.origin).href;
+}
+
+// Always download via the same-origin proxy when possible: direct GCP
+// fetches are CORS-blocked from some origins (localhost), while the proxy
+// carries CORS headers everywhere — and the cached entry then matches
+// exactly what <img> requests at runtime.
+function toFetchableUrl(u: string): string {
+  const absolute = normalizeUrl(u);
+  // Only wrap DIRECT GCP URLs (host check — the string also appears inside
+  // already-proxied query params, and double-wrapping 403s). Proxied and
+  // local URLs pass through untouched.
+  try {
+    if (new URL(absolute).hostname === "storage.googleapis.com") {
+      return `${window.location.origin}/api/image-proxy?url=${encodeURIComponent(absolute)}`;
+    }
+  } catch {
+    // malformed — let the fetch fail naturally and count as error
+  }
+  return absolute;
 }
 
 // Progress-log photo fields are schemaless JSONB — could be string arrays,
@@ -210,14 +231,20 @@ export async function downloadProjectForOffline(
   // oldest site photos stay server-side and load on connection.
   const MAX_OFFLINE_PHOTOS = 500;
   const MAX_OFFLINE_BYTES = 300 * 1024 * 1024;
-  const urls = [...Array.from(imageUrls), ...captureUrls];
+  const urls = Array.from(
+    new Set([...Array.from(imageUrls), ...captureUrls].map(toFetchableUrl)),
+  );
   const imageTotal = urls.length;
   let saved = 0;
+  let skippedBudget = 0;
   let imageBytes = 0;
   const canCache = typeof caches !== "undefined";
   for (let i = 0; i < urls.length; i++) {
     progress("images", i, urls.length);
-    if (saved >= MAX_OFFLINE_PHOTOS || imageBytes >= MAX_OFFLINE_BYTES) break;
+    if (saved >= MAX_OFFLINE_PHOTOS || imageBytes >= MAX_OFFLINE_BYTES) {
+      skippedBudget++;
+      continue;
+    }
     try {
       const res = await fetch(urls[i]);
       if (!res.ok) {
@@ -229,7 +256,8 @@ export async function downloadProjectForOffline(
         imageBytes + blob.size > MAX_OFFLINE_BYTES ||
         saved >= MAX_OFFLINE_PHOTOS
       ) {
-        break;
+        skippedBudget++;
+        continue;
       }
       imageBytes += blob.size;
       saved++;
@@ -267,6 +295,7 @@ export async function downloadProjectForOffline(
     imageTotal,
     imageBytes,
     errors,
+    skippedBudget,
   };
   await db.offlineMeta
     .put({ key: META_KEY(projectId), value: pkg, updatedAt: Date.now() })

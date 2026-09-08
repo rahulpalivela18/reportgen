@@ -511,11 +511,14 @@ export default function CaptureManager() {
       // the same title/tags — a bulk import of one batch, tagged once.
       const results = await Promise.all(
         selectedFiles.map(async (file, i) => {
+          console.log("[upload] reading file", i, file.size);
           const { dataUrl, width, height } = await readFileAsCapture(file);
+          console.log("[upload] compressed", i, `${width}x${height}`);
           const title =
             selectedFiles.length > 1
               ? `${newTitle || "Capture"} ${i + 1}`
               : newTitle || "Capture";
+          console.log("[upload] sending capture", i, title);
           return api.createCapture(projectId, {
             title,
             imageUrl: dataUrl,

@@ -72,6 +72,7 @@ export async function offlineFetch(
   const cacheable = method === "GET" && isCacheableUrl(url);
 
   if (!navigator.onLine) {
+    console.log("[offline] offline, method=", method, url);
     if (cacheable) {
       const hit = await db.apiCache.get(url).catch(() => undefined);
       if (hit) return cachedResponse(hit.data);
@@ -82,7 +83,9 @@ export async function offlineFetch(
     if (url.includes("/api/auth")) throw new OfflineError(url);
     const rawBody =
       init?.body && typeof init.body === "string" ? init.body : undefined;
+    console.log("[offline] queueing mutation", method, url);
     await enqueueMutation(method, url, rawBody);
+    console.log("[offline] queued OK", method, url);
     return queuedResponse(rawBody);
   }
 

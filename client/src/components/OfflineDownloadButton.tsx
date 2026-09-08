@@ -50,14 +50,14 @@ export function OfflineDownloadButton({
     try {
       const result = await downloadProjectForOffline(projectId, setProgress);
       setPkg(result);
+      const failed = result.errors > 0 ? `, ${result.errors} failed` : "";
+      const capped =
+        (result.skippedBudget ?? 0) > 0 ? " — oldest skipped (budget)" : "";
       toast({
         title: "Available offline",
         description:
           result.imageTotal > 0
-            ? `${result.imageCount}/${result.imageTotal} photos (${formatBytes(result.imageBytes)}) saved` +
-              (result.imageTotal > result.imageCount
-                ? " — oldest skipped (budget)."
-                : ".")
+            ? `${result.imageCount}/${result.imageTotal} photos (${formatBytes(result.imageBytes)}) saved${capped}${failed}.`
             : "Project data saved. No photos found in this project yet.",
       });
     } catch {
@@ -121,6 +121,7 @@ export function OfflineDownloadButton({
         >
           <CheckCircle2 className="h-3.5 w-3.5" />
           Offline • {formatBytes(pkg.imageBytes)}
+          <RefreshCw className="h-3 w-3 opacity-60" />
         </button>
       );
     }
