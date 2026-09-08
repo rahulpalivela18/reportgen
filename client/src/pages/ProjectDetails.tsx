@@ -247,11 +247,12 @@ export default function ProjectDetails() {
     onSuccess: (visit: any) => {
       if (isQueuedResponse(visit)) {
         const { [OFFLINE_QUEUED_MARKER]: _, ...rest } = visit;
+        const active = { ...rest, active: true };
         queryClient.setQueryData(["visits", params?.id], (old: any[]) => [
-          ...(old ?? []),
-          rest,
+          active,
+          ...((old ?? []).map((v: any) => ({ ...v, active: false }))),
         ]);
-        appendToCachedList(`/api/projects/${params!.id}/visits`, rest);
+        appendToCachedList(`/api/projects/${params!.id}/visits`, active);
       } else {
         queryClient.invalidateQueries({ queryKey: ["visits", params?.id] });
       }

@@ -50,6 +50,8 @@ import { ProjectTabs } from "@/components/ProjectTabs";
 import { OfflineDownloadButton } from "@/components/OfflineDownloadButton";
 import { useToast } from "@/hooks/use-toast";
 import { ensureJpeg, compressImageFile, cn, isAdminRole } from "@/lib/utils";
+import { isQueuedResponse, OFFLINE_QUEUED_MARKER } from "@/lib/offline";
+import { seedCachedDetail, appendToCachedList } from "@/lib/prefetch";
 import CapturePDF from "@/components/CapturePDF";
 import { pdf } from "@react-pdf/renderer";
 import { useAuth } from "@/lib/auth";
@@ -527,8 +529,49 @@ export default function CaptureManager() {
       );
       return results;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["captures", projectId] });
+    onSuccess: (results: any) => {
+      // Offline: pencil newborn captures into the grid instantly (they live
+      // in the outbox until sync). Tags resolve from known values.
+      if (
+        Array.isArray(results) &&
+        results.length > 0 &&
+        results.every(isQueuedResponse)
+      ) {
+        const lookup = new Map(
+          (tagValues as any[]).map((t: any) => [t.id, t]),
+        );
+        const items = results.map((r: any) => {
+          const { [OFFLINE_QUEUED_MARKER]: _, ...rest } = r;
+          const tags = ((rest.tagValueIds ?? []) as string[])
+            .map((tagValueId: string) => {
+              const t = lookup.get(tagValueId);
+              return t
+                ? {
+                    captureId: rest.id,
+                    tagValueId,
+                    category: t.category,
+                    value: t.value,
+                  }
+                : null;
+            })
+            .filter(Boolean);
+          return {
+            ...rest,
+            tags,
+            createdAt: new Date().toISOString(),
+          };
+        });
+        queryClient.setQueryData(["captures", projectId], (old: any[]) => [
+          ...items,
+          ...(old ?? []),
+        ]);
+        items.forEach((item: any) => {
+          seedCachedDetail(`/api/captures/${item.id}`, item);
+          appendToCachedList(`/api/projects/${projectId}/captures`, item);
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["captures", projectId] });
+      }
       refreshTrial();
       setSelectedFiles([]);
       setPreviewUrl(null);
@@ -548,9 +591,28 @@ export default function CaptureManager() {
 
   const createVisitMutation = useMutation({
     mutationFn: (title: string) => api.createVisit(projectId!, title),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["visits", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["currentVisit", projectId] });
+    onSuccess: (visit: any) => {
+      if (isQueuedResponse(visit)) {
+        // Offline: the newborn visit IS the current one — badge it active
+        // everywhere so the camera targets it immediately.
+        const { [OFFLINE_QUEUED_MARKER]: _, ...rest } = visit;
+        const active = { ...rest, active: true };
+        queryClient.setQueryData(["visits", projectId], (old: any[]) => [
+          active,
+          ...((old ?? []).map((v: any) => ({ ...v, active: false }))),
+        ]);
+        queryClient.setQueryData(["currentVisit", projectId], active);
+        seedCachedDetail(
+          `/api/projects/${projectId}/visits/current`,
+          active,
+        );
+        appendToCachedList(`/api/projects/${projectId}/visits`, active);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["visits", projectId] });
+        queryClient.invalidateQueries({
+          queryKey: ["currentVisit", projectId],
+        });
+      }
       setIsNewVisitOpen(false);
       setNewVisitTitle("");
       if (openCameraAfterVisit) {
@@ -564,7 +626,30 @@ export default function CaptureManager() {
 
   const activateVisitMutation = useMutation({
     mutationFn: (visitId: string) => api.activateVisit(projectId!, visitId),
-    onSuccess: (activated: any) => {
+    onSuccess: (activated: any, visitId: string) => {
+      if (isQueuedResponse(activated)) {
+        // Offline echo carries no row — flip the badge using the id we sent.
+        const flip = (list: any[]) =>
+          (list ?? []).map((v: any) => ({
+            ...v,
+            active: v.id === visitId,
+          }));
+        queryClient.setQueryData(["visits", projectId], (old: any[]) =>
+          flip(old),
+        );
+        const current = flip(
+          queryClient.getQueryData<any[]>(["visits", projectId]) ?? [],
+        ).find((v: any) => v.id === visitId);
+        if (current) {
+          queryClient.setQueryData(["currentVisit", projectId], current);
+          seedCachedDetail(
+            `/api/projects/${projectId}/visits/current`,
+            current,
+          );
+        }
+        toast({ title: "Visit switched — will sync" });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ["visits", projectId] });
       queryClient.invalidateQueries({ queryKey: ["currentVisit", projectId] });
       toast({
