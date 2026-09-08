@@ -1,5 +1,9 @@
 import { useEffect, useRef } from "react";
 import { X, MapPin, Info } from "lucide-react";
+// Bundled (not CDN) so the 360 viewer works offline — vite precaches it
+// with the app shell.
+import "pannellum/build/pannellum.js";
+import "pannellum/build/pannellum.css";
 
 interface PanoViewerProps {
   pin: {
@@ -28,28 +32,16 @@ export default function PanoViewer({ pin, open, onClose }: PanoViewerProps) {
   useEffect(() => {
     if (!open || !containerRef.current || !pin.panoUrl) return;
 
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js";
-    script.async = true;
-    script.onload = () => {
-      if (!containerRef.current) return;
-      viewerRef.current = window.pannellum.viewer(containerRef.current, {
-        type: "equirectangular",
-        panorama: pin.panoUrl,
-        autoLoad: true,
-        compass: true,
-        hotSpotDebug: false,
-        showZoomCtrl: true,
-        showFullscreenCtrl: true,
-        showControls: true,
-      });
-    };
-
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css";
-    document.head.appendChild(link);
-    document.head.appendChild(script);
+    viewerRef.current = window.pannellum.viewer(containerRef.current, {
+      type: "equirectangular",
+      panorama: pin.panoUrl,
+      autoLoad: true,
+      compass: true,
+      hotSpotDebug: false,
+      showZoomCtrl: true,
+      showFullscreenCtrl: true,
+      showControls: true,
+    });
 
     return () => {
       if (viewerRef.current) {
@@ -58,8 +50,6 @@ export default function PanoViewer({ pin, open, onClose }: PanoViewerProps) {
         } catch {}
         viewerRef.current = null;
       }
-      script.remove();
-      link.remove();
     };
   }, [open, pin.panoUrl, pin.id]);
 
